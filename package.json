@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "A production-ready desktop application for automating AI video creation workflows",
-  "main": "dist/main/main.js",
+  "main": "dist/main/main/main.js",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:electron\"",
     "dev:renderer": "vite --config src/renderer/vite.config.ts",
     "dev:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
     "dev:preload": "tsc -p tsconfig.preload.json --watch --preserveWatchOutput",
-    "dev:electron": "wait-on dist/main/main.js dist/preload/index.js http://localhost:4444 && electron .",
+    "dev:electron": "wait-on dist/main/main/main.js dist/preload/preload/index.js http://localhost:4444 && electron .",
     "build": "npm run build:renderer && npm run build:main && npm run build:preload && electron-builder",
     "build:renderer": "vite build --config src/renderer/vite.config.ts",
     "build:main": "tsc -p tsconfig.main.json",
@@ -27,6 +27,7 @@
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "@types/node": "^20.19.43",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.17",
@@ -51,7 +52,7 @@
       "README.md"
     ],
     "extraMetadata": {
-      "main": "dist/main/main.js"
+      "main": "dist/main/main/main.js"
     },
     "linux": {
       "target": [
