@@ -38,11 +38,17 @@ export interface UpdatePromptRequest {
 }
 
 export interface SettingsDto {
+  readonly chromeExecutablePath: string | null
   readonly chromeProfilePath: string | null
+  readonly automation: {
+    readonly delayBetweenActionsMs: number
+    readonly retryCount: number
+  }
   readonly flowUrl: string
   readonly downloadFolder: string
   readonly ffmpegPath: string | null
   readonly theme: 'light' | 'dark' | 'system'
+  readonly autosaveEnabled: boolean
   readonly autosaveIntervalMs: number
   readonly rendering: {
     readonly transitionDuration: number
@@ -60,4 +66,7 @@ export interface StudioApi {
   updatePrompt(projectId: string, input: UpdatePromptRequest): Promise<StorySceneDto>
   getSettings(): Promise<SettingsDto>
   updateSettings(patch: Partial<SettingsDto>): Promise<SettingsDto>
+  openFileDialog?(options?: { title?: string; defaultPath?: string; filters?: { name: string; extensions: string[] }[] }): Promise<string | null>
+  openFolderDialog?(options?: { title?: string; defaultPath?: string }): Promise<string | null>
+  validatePath?(path: string): Promise<boolean>
 }

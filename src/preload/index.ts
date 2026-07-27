@@ -33,6 +33,15 @@ const studioApi: StudioApi = {
   updateSettings: (patch: Partial<SettingsDto>): Promise<SettingsDto> => {
     return ipcRenderer.invoke(IPC_CHANNELS.settings.update, patch) as Promise<SettingsDto>
   },
+  openFileDialog: (options?: { title?: string; defaultPath?: string; filters?: { name: string; extensions: string[] }[] }): Promise<string | null> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.dialog.openFile, options) as Promise<string | null>
+  },
+  openFolderDialog: (options?: { title?: string; defaultPath?: string }): Promise<string | null> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.dialog.openFolder, options) as Promise<string | null>
+  },
+  validatePath: (p: string): Promise<boolean> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.fs.exists, p) as Promise<boolean>
+  },
 }
 
 contextBridge.exposeInMainWorld('studioApi', studioApi)

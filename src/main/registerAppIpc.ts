@@ -91,4 +91,37 @@ export async function registerAppIpc(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.settings.update, async (_event, patch: Partial<SettingsDto>): Promise<SettingsDto> => {
     return settingsService.updateSettings(patch)
   })
+
+  ipcMain.handle(IPC_CHANNELS.dialog.openFile, async (_event, options?: { title?: string; defaultPath?: string; filters?: { name: string; extensions: string[] }[] }): Promise<string | null> => {
+    const { dialog } = await import('electron')
+    const res = await dialog.showOpenDialog({
+      title: options?.title,
+      defaultPath: options?.defaultPath,
+      filters: options?.filters,
+      properties: ['openFile']
+    })
+    if (res.canceled || res.filePaths.length === 0) return null
+    return res.filePaths[0]
+  })
+
+  ipcMain.handle(IPC_CHANNELS.dialog.openFolder, async (_event, options?: { title?: string; defaultPath?: string }): Promise<string | null> => {
+    const { dialog } = await import('electron')
+    const res = await dialog.showOpenDialog({
+      title: options?.title,
+      defaultPath: options?.defaultPath,
+      properties: ['openDirectory']
+    })
+    if (res.canceled || res.filePaths.length === 0) return null
+    return res.filePaths[0]
+  })
+
+  ipcMain.handle(IPC_CHANNELS.fs.exists, async (_event, p: string): Promise<boolean> => {
+    const fs = await import('fs')
+    try {
+      await fs.promises.access(p)
+      return true
+    } catch {
+      return false
+    }
+  })
 }

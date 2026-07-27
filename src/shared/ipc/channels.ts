@@ -12,4 +12,11 @@ export const IPC_CHANNELS = {
     get: 'settings:get',
     update: 'settings:update',
   },
+  dialog: {
+    openFile: 'dialog:open-file',
+    openFolder: 'dialog:open-folder',
+  },
+  fs: {
+    exists: 'fs:exists',
+  },
 } as const

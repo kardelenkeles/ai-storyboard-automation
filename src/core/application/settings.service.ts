@@ -28,6 +28,7 @@ export function createSettingsService(repository: SettingsRepository): SettingsS
     if (s.downloadFolder !== undefined) out.downloadFolder = String(s.downloadFolder)
     if (s.ffmpegPath !== undefined) out.ffmpegPath = s.ffmpegPath === null ? null : String(s.ffmpegPath)
     if (s.theme !== undefined) out.theme = (s.theme as any) ?? DEFAULTS.theme
+    if (s.autosaveEnabled !== undefined) out.autosaveEnabled = Boolean(s.autosaveEnabled)
     if (s.autosaveIntervalMs !== undefined) out.autosaveIntervalMs = Number(s.autosaveIntervalMs) || DEFAULTS.autosaveIntervalMs
     if (s.rendering !== undefined) {
       out.rendering = {
