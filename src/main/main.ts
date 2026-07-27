@@ -13,8 +13,8 @@ if (!hasSingleInstance) {
 
 app.setName('Video Automation Studio')
 
-app.whenReady().then((): void => {
-  registerAppIpc()
+app.whenReady().then(async (): Promise<void> => {
+  await registerAppIpc()
   mainWindow = createMainWindow()
 
   app.on('activate', (): void => {

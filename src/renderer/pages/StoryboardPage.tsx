@@ -1,20 +1,72 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import type { StorySceneDto } from '../../shared/ipc/contracts'
 
-interface SceneCard {
-  id: string
-  title: string
-  prompt: string
-  status: 'Draft' | 'Ready' | 'Queued'
-  reference: string
+const PROJECT_ID = 'default-project'
+
+function statusLabel(status: string): 'Draft' | 'Ready' | 'Queued' {
+  if (status === 'ready') return 'Ready'
+  if (status === 'queued') return 'Queued'
+  return 'Draft'
 }
 
-const storyboardPreview: SceneCard[] = [
-  { id: 's1', title: 'Scene 01', prompt: 'An aerial sunrise reveal over a futuristic city skyline, cinematic and warm.', status: 'Ready', reference: 'No reference' },
-  { id: 's2', title: 'Scene 02', prompt: 'A close-up of the lead character looking at a holographic map in a quiet alley.', status: 'Draft', reference: 'Uses Scene 01' },
-  { id: 's3', title: 'Scene 03', prompt: 'The camera pulls back to reveal the full team preparing for launch.', status: 'Queued', reference: 'Uses Scene 02' },
-]
-
 export default function StoryboardPage(props: { onEditScene: (id: string) => void }): JSX.Element {
+  const [scenes, setScenes] = useState<readonly StorySceneDto[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = async (): Promise<void> => {
+    const api = (window as any).studioApi
+    if (!api) {
+      setError('Desktop bridge is not available. Start the app with Electron.')
+      return
+    }
+
+    try {
+      const board = await api.getStoryboard(PROJECT_ID)
+      setScenes(board.scenes)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load storyboard')
+    }
+  }
+
+  useEffect(() => {
+    void refresh()
+  }, [])
+
+  const onAdd = async (): Promise<void> => {
+    const api = (window as any).studioApi
+    if (!api) {
+      setError('Desktop bridge is not available. Start the app with Electron.')
+      return
+    }
+
+    try {
+      await api.createScene(PROJECT_ID, {
+        title: `Scene ${String(scenes.length + 1).padStart(2, '0')}`,
+        prompt: 'Describe the shot...',
+        duration: 4,
+      })
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create scene')
+    }
+  }
+
+  const onDelete = async (sceneId: string): Promise<void> => {
+    const api = (window as any).studioApi
+    if (!api) {
+      setError('Desktop bridge is not available. Start the app with Electron.')
+      return
+    }
+
+    try {
+      await api.deleteScene(PROJECT_ID, sceneId)
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete scene')
+    }
+  }
+
   return (
     <>
       <article className="panel storyboard-panel">
@@ -23,23 +75,30 @@ export default function StoryboardPage(props: { onEditScene: (id: string) => voi
             <p className="panel-label">Storyboard</p>
             <h3>Scene queue</h3>
           </div>
-          <button className="ghost-button" type="button">Add scene</button>
+          <button className="ghost-button" type="button" onClick={() => void onAdd()}>Add scene</button>
         </div>
 
+        {error && <p style={{ color: '#fca5a5', marginBottom: 12 }}>{error}</p>}
+
         <div className="storyboard-grid">
-          {storyboardPreview.map((scene) => (
+          {scenes.map((scene) => {
+            const label = statusLabel(scene.status)
+            return (
             <article className="scene-card" key={scene.id}>
               <div className="scene-card__header">
                 <span>{scene.title}</span>
-                <span className={`status-pill status-pill--${scene.status.toLowerCase()}`}>{scene.status}</span>
+                <span className={`status-pill status-pill--${label.toLowerCase()}`}>{label}</span>
               </div>
               <p className="scene-card__prompt">{scene.prompt}</p>
               <div className="scene-card__footer">
-                <span>{scene.reference}</span>
-                <button className="ghost-button" onClick={() => props.onEditScene(scene.id)}>Edit</button>
+                <span>{scene.referenceSceneId ? `Uses ${scene.referenceSceneId}` : 'No reference'}</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="ghost-button" onClick={() => props.onEditScene(scene.id)}>Edit</button>
+                  <button className="ghost-button" onClick={() => void onDelete(scene.id)}>Delete</button>
+                </div>
               </div>
             </article>
-          ))}
+          )})}
         </div>
       </article>
 

@@ -1,32 +1,63 @@
 import React, { useEffect, useState } from 'react'
-import type { Settings } from '../../shared/domain/settings'
-
-const SETTINGS_KEY = 'vas:settings'
-
-function loadLocalSettings(): Settings | null {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as Settings
-  } catch {
-    return null
-  }
-}
-
-function saveLocalSettings(s: Settings): void {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)) } catch {}
-}
+import type { SettingsDto } from '../../shared/ipc/contracts'
 
 export default function SettingsPage(): JSX.Element {
-  const [settings, setSettings] = useState<Partial<Settings>>({})
+  const [settings, setSettings] = useState<Partial<SettingsDto>>({})
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const local = loadLocalSettings()
-    if (local) setSettings(local)
-    else setSettings({})
+    const load = async (): Promise<void> => {
+      const api = (window as any).studioApi
+      if (!api) {
+        setError('Desktop bridge is not available. Start the app with Electron.')
+        return
+      }
+
+      try {
+        const loaded = await api.getSettings()
+        setSettings(loaded)
+        setError(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load settings')
+      }
+    }
+
+    void load()
   }, [])
 
-  const update = (patch: Partial<Settings>) => setSettings((s) => ({ ...(s ?? {}), ...patch }))
+  const update = (patch: Partial<SettingsDto>) => setSettings((s) => ({ ...(s ?? {}), ...patch }))
+
+  const save = async (): Promise<void> => {
+    const api = (window as any).studioApi
+    if (!api) {
+      setError('Desktop bridge is not available. Start the app with Electron.')
+      return
+    }
+
+    try {
+      const saved = await api.updateSettings(settings)
+      setSettings(saved)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save settings')
+    }
+  }
+
+  const reload = async (): Promise<void> => {
+    const api = (window as any).studioApi
+    if (!api) {
+      setError('Desktop bridge is not available. Start the app with Electron.')
+      return
+    }
+
+    try {
+      const loaded = await api.getSettings()
+      setSettings(loaded)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to reload settings')
+    }
+  }
 
   return (
     <article className="panel" style={{ padding: 20 }}>
@@ -36,6 +67,8 @@ export default function SettingsPage(): JSX.Element {
           <h3>Application preferences</h3>
         </div>
       </div>
+
+      {error && <p style={{ color: '#fca5a5', marginBottom: 12 }}>{error}</p>}
 
       <div style={{ display: 'grid', gap: 12 }}>
         <label>
@@ -54,8 +87,8 @@ export default function SettingsPage(): JSX.Element {
         </label>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="ghost-button" onClick={() => { const s = loadLocalSettings() ?? {}; saveLocalSettings(s as Settings) }}>Reload</button>
-          <button className="ghost-button" onClick={() => { saveLocalSettings(settings as Settings) }}>Save</button>
+          <button className="ghost-button" onClick={() => void reload()}>Reload</button>
+          <button className="ghost-button" onClick={() => void save()}>Save</button>
         </div>
       </div>
     </article>

@@ -14,7 +14,7 @@ export function createMainWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      preload: path.join(__dirname, '..', 'preload', 'index.js')
+      preload: path.join(__dirname, '..', '..', 'preload', 'preload', 'index.js')
     }
   })
 
