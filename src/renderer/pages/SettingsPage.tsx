@@ -13,8 +13,11 @@ export default function SettingsPage(): JSX.Element {
 
   useEffect(() => {
     const load = async (): Promise<void> => {
-      const api = (window as any).studioApi
-      if (!api) return
+      const api = await import('../utils/bridge').then((m) => m.waitForStudioApi(5000))
+      if (!api) {
+        setStatus('Desktop bridge not available — make sure you run the app with Electron')
+        return
+      }
       try {
         const loaded = await api.getSettings()
         setSettings(loaded)
@@ -61,7 +64,7 @@ export default function SettingsPage(): JSX.Element {
   }
 
   const save = async () => {
-    const api = (window as any).studioApi
+    const api = await import('../utils/bridge').then((m) => m.waitForStudioApi(5000))
     if (!api) {
       setStatus('Desktop bridge not available')
       return
@@ -78,8 +81,11 @@ export default function SettingsPage(): JSX.Element {
   }
 
   const resetToDefaults = async () => {
-    const api = (window as any).studioApi
-    if (!api) return
+    const api = await import('../utils/bridge').then((m) => m.waitForStudioApi(5000))
+    if (!api) {
+      setStatus('Desktop bridge not available')
+      return
+    }
     // use shared DEFAULT_SETTINGS as source of truth
     const defaults = DEFAULT_SETTINGS as unknown as SettingsDto
     try {
