@@ -14,6 +14,7 @@
     "src/core/**/*.ts",
     "src/shared/**/*.ts",
     "src/common/**/*.ts",
+    "src/infrastructure/**/*.ts",
     "src/types/**/*.d.ts"
   ],
   "exclude": ["src/renderer/**/*", "dist", "release", "node_modules"]
