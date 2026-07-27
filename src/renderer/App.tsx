@@ -1,41 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { AppEnvironment } from '../shared/ipc/contracts'
+import StoryboardPage from './pages/StoryboardPage'
+import PromptEditorPage from './pages/PromptEditorPage'
+import SettingsPage from './pages/SettingsPage'
 
-interface SceneCard {
-  readonly title: string
-  readonly prompt: string
-  readonly status: 'Draft' | 'Ready' | 'Queued'
-  readonly reference: string
-}
-
-const storyboardPreview: readonly SceneCard[] = [
-  {
-    title: 'Scene 01',
-    prompt: 'An aerial sunrise reveal over a futuristic city skyline, cinematic and warm.',
-    status: 'Ready',
-    reference: 'No reference'
-  },
-  {
-    title: 'Scene 02',
-    prompt: 'A close-up of the lead character looking at a holographic map in a quiet alley.',
-    status: 'Draft',
-    reference: 'Uses Scene 01'
-  },
-  {
-    title: 'Scene 03',
-    prompt: 'The camera pulls back to reveal the full team preparing for launch.',
-    status: 'Queued',
-    reference: 'Uses Scene 02'
-  }
-]
+type Route = 'storyboard' | 'prompt' | 'settings'
 
 export function App(): JSX.Element {
   const [environment, setEnvironment] = useState<AppEnvironment | null>(null)
+  const [route, setRoute] = useState<Route>('storyboard')
+  const [editingSceneId, setEditingSceneId] = useState<string | null>(null)
 
   useEffect(() => {
-    void window.studioApi.getEnvironment().then(setEnvironment)
+    if (typeof window !== 'undefined' && (window as any).studioApi && typeof (window as any).studioApi.getEnvironment === 'function') {
+      void (window as any).studioApi.getEnvironment().then(setEnvironment).catch(() => undefined)
+    }
   }, [])
+
+  const header = useMemo(() => {
+    switch (route) {
+      case 'storyboard': return { title: 'Storyboard', subtitle: 'Scene queue' }
+      case 'prompt': return { title: 'Prompt editor', subtitle: 'Edit scene prompts' }
+      case 'settings': return { title: 'Settings', subtitle: 'Application preferences' }
+    }
+  }, [route])
 
   return (
     <div className="app-shell">
@@ -48,19 +37,20 @@ export function App(): JSX.Element {
           </div>
         </div>
 
-        <section className="panel sidebar-panel">
-          <p className="panel-label">Project</p>
-          <h2>Blueprint session</h2>
-          <p className="panel-copy">
-            Paste your script, review the storyboard, and keep each scene linked to the frame that came before it.
-          </p>
-        </section>
+        <nav className="panel sidebar-panel">
+          <p className="panel-label">Navigation</p>
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+            <button className="ghost-button" onClick={() => setRoute('storyboard')}>Storyboard</button>
+            <button className="ghost-button" onClick={() => setRoute('prompt')}>Prompt editor</button>
+            <button className="ghost-button" onClick={() => setRoute('settings')}>Settings</button>
+          </div>
+        </nav>
 
         <section className="panel sidebar-panel sidebar-panel--compact">
           <p className="panel-label">Runtime</p>
-          <p className="runtime-value">{environment?.appVersion ?? 'Loading environment'}</p>
+          <p className="runtime-value">{environment?.appVersion ?? 'Loading'}</p>
           <p className="runtime-subtitle">
-            {environment ? `${environment.platform} · ${environment.electronVersion}` : 'Waiting for preload bridge'}
+            {environment ? `${environment.platform} · ${environment.electronVersion}` : 'Waiting'}
           </p>
         </section>
       </aside>
@@ -68,18 +58,14 @@ export function App(): JSX.Element {
       <main className="workspace">
         <header className="hero panel">
           <div>
-            <p className="eyebrow">Storyboard-first automation</p>
-            <h2>Build once, render sequentially, export a finished cut.</h2>
-            <p className="hero-copy">
-              The foundation is ready for project creation, prompt editing, Playwright-based Flow automation,
-              SQLite persistence, and FFmpeg output.
-            </p>
+            <p className="eyebrow">{header.subtitle}</p>
+            <h2>{header.title}</h2>
           </div>
 
           <div className="hero-meta">
             <div className="meta-card">
               <span className="meta-label">Scenes</span>
-              <strong>3</strong>
+              <strong>—</strong>
             </div>
             <div className="meta-card">
               <span className="meta-label">Render mode</span>
@@ -93,42 +79,17 @@ export function App(): JSX.Element {
         </header>
 
         <section className="content-grid">
-          <article className="panel storyboard-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-label">Storyboard</p>
-                <h3>Scene queue</h3>
-              </div>
-              <button className="ghost-button" type="button">Add scene</button>
-            </div>
+          {route === 'storyboard' && (
+            <StoryboardPage onEditScene={(id) => { setEditingSceneId(id); setRoute('prompt') }} />
+          )}
 
-            <div className="storyboard-grid">
-              {storyboardPreview.map((scene) => (
-                <article className="scene-card" key={scene.title}>
-                  <div className="scene-card__header">
-                    <span>{scene.title}</span>
-                    <span className={`status-pill status-pill--${scene.status.toLowerCase()}`}>{scene.status}</span>
-                  </div>
-                  <p className="scene-card__prompt">{scene.prompt}</p>
-                  <div className="scene-card__footer">
-                    <span>{scene.reference}</span>
-                    <span>Edit before render</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </article>
+          {route === 'prompt' && (
+            <PromptEditorPage sceneId={editingSceneId} onDone={() => setRoute('storyboard')} />
+          )}
 
-          <article className="panel side-panel">
-            <p className="panel-label">Workflow</p>
-            <h3>Foundation checkpoints</h3>
-            <ul className="checklist">
-              <li>Electron shell and secure preload bridge</li>
-              <li>Shared domain and IPC contracts</li>
-              <li>Renderer shell with storyboard layout</li>
-              <li>Build and packaging configuration</li>
-            </ul>
-          </article>
+          {route === 'settings' && (
+            <SettingsPage />
+          )}
         </section>
       </main>
     </div>
