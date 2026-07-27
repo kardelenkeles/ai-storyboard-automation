@@ -15,6 +15,7 @@ export interface PlaywrightAutomation {
   openFlow(): Promise<void>
   sendPrompt(text: string): Promise<void>
   downloadImage(selector: string, destPath: string): Promise<void>
+  dragAndDropImage(filePath: string, targetSelector?: string): Promise<void>
   waitUntilFinished(timeoutMs?: number): Promise<void>
 }
 

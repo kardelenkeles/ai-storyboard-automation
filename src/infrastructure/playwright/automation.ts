@@ -129,6 +129,41 @@ export class PlaywrightAutomationImpl implements PlaywrightAutomation {
     await fs.promises.writeFile(destPath, buffer)
   }
 
+  async dragAndDropImage(filePath: string, targetSelector?: string): Promise<void> {
+    if (!this.page) throw new Error('Flow page not open')
+
+    // create a hidden file input if needed
+    const inputId = '__pas_upload'
+    await (this.page as any).evaluate(new Function('id', `
+      if (document.getElementById(id)) return;
+      const i = document.createElement('input');
+      i.type = 'file';
+      i.id = id;
+      i.style.display = 'none';
+      document.body.appendChild(i);
+    `), inputId)
+
+    const handle = await this.page.$(`#${inputId}`)
+    if (!handle) throw new Error('Failed to create upload input')
+    // attach file to input
+    // Playwright ElementHandle.setInputFiles accepts a path
+    // @ts-ignore
+    await handle.setInputFiles(filePath)
+
+    // dispatch drag/drop events with the files on the target
+    const selector = targetSelector ?? 'body'
+    const fnBody = `
+      const input = document.getElementById(inputIdLocal);
+      if (!input) throw new Error('upload input missing');
+      const target = document.querySelector(targetSel) || document.body;
+      const dt = new DataTransfer();
+      if (input.files) { for (let i = 0; i < input.files.length; i++) dt.items.add(input.files[i]); }
+      function dispatch(name) { const ev = new DragEvent(name, { bubbles: true, cancelable: true, dataTransfer: dt }); target.dispatchEvent(ev); }
+      dispatch('dragenter'); dispatch('dragover'); dispatch('drop');
+    `
+    await (this.page as any).evaluate(new Function('inputIdLocal', 'targetSel', fnBody), inputId, selector)
+  }
+
   async waitUntilFinished(timeoutMs = 120_000): Promise<void> {
     if (!this.page) throw new Error('Flow page not open')
     if (!this.opts.finishedSelector) {
