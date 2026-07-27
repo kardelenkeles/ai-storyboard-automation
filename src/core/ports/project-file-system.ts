@@ -11,6 +11,6 @@ export interface ProjectFileSystemPort {
   renameProjectDirectory(input: RenameProjectDirectoryInput): Promise<ProjectFolderLayout>
   duplicateProjectDirectory(input: DuplicateProjectDirectoryInput): Promise<ProjectFolderLayout>
   deleteProjectDirectory(rootPath: string): Promise<void>
-  writeSnapshot(layout: ProjectFolderLayout, snapshot: ProjectRecoverySnapshot): Promise<void>
+  writeSnapshot(rootPath: string, snapshot: ProjectRecoverySnapshot): Promise<void>
   readSnapshot(rootPath: string): Promise<ProjectRecoverySnapshot | null>
 }

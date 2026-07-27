@@ -1,8 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import sqlite3 from 'sqlite3'
-
 import type {
   CreateProjectDirectoryInput,
   DuplicateProjectDirectoryInput,
@@ -12,11 +10,6 @@ import type {
 } from '../../shared/domain/project-manager'
 import type { ProjectFileSystemPort } from '../../core/ports/project-file-system'
 import { SqliteConnection } from '../sqlite/sqlite-connection'
-
-interface ProjectStateRow {
-  key: string
-  value: string
-}
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -83,6 +76,35 @@ async function ensureDirectoryStructure(rootPath: string): Promise<ProjectFolder
   }
 }
 
+async function readJson<T>(filePath: string): Promise<T | null> {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8')
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
+async function patchProjectManifestFiles(rootPath: string, projectId: string, projectName: string): Promise<void> {
+  const storyboardPath = path.join(rootPath, 'storyboard.json')
+  const settingsPath = path.join(rootPath, 'settings.json')
+
+  const storyboard = await readJson<Record<string, unknown>>(storyboardPath)
+  const settings = await readJson<Record<string, unknown>>(settingsPath)
+
+  await writeJson(storyboardPath, {
+    ...(storyboard ?? {}),
+    projectId,
+    projectName,
+  })
+
+  await writeJson(settingsPath, {
+    ...(settings ?? {}),
+    projectId,
+    projectName,
+  })
+}
+
 async function writeJson(filePath: string, value: unknown): Promise<void> {
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
 }
@@ -96,13 +118,31 @@ async function initializeProjectDatabase(databasePath: string, projectId: string
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
-
-      INSERT INTO project_state (key, value) VALUES
-        ('projectId', ${JSON.stringify(projectId)}),
-        ('projectName', ${JSON.stringify(projectName)}),
-        ('schemaVersion', '1')
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `)
+
+    await connection.run(
+      `
+        INSERT INTO project_state (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `,
+      ['projectId', projectId],
+    )
+
+    await connection.run(
+      `
+        INSERT INTO project_state (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `,
+      ['projectName', projectName],
+    )
+
+    await connection.run(
+      `
+        INSERT INTO project_state (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `,
+      ['schemaVersion', '1'],
+    )
   } finally {
     await connection.close()
   }
@@ -120,14 +160,18 @@ async function updateProjectDatabaseMetadata(databasePath: string, projectId: st
     `)
 
     await connection.run(
-      `
-        INSERT INTO project_state (key, value) VALUES
-          ('projectId', ?),
-          ('projectName', ?),
-          ('schemaVersion', '1')
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value;
-      `,
-      [projectId, projectName],
+      `INSERT INTO project_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ['projectId', projectId],
+    )
+
+    await connection.run(
+      `INSERT INTO project_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ['projectName', projectName],
+    )
+
+    await connection.run(
+      `INSERT INTO project_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ['schemaVersion', '1'],
     )
   } finally {
     await connection.close()
@@ -167,17 +211,7 @@ export class NodeProjectFileSystem implements ProjectFileSystemPort {
     await fs.rename(input.currentRootPath, targetRootPath)
     const layout = await ensureDirectoryStructure(targetRootPath)
 
-    await writeJson(layout.storyboardPath, {
-      projectId: input.projectId,
-      projectName: input.projectName,
-      scenes: [],
-    })
-
-    await writeJson(layout.settingsPath, {
-      projectId: input.projectId,
-      projectName: input.projectName,
-      version: 1,
-    })
+    await patchProjectManifestFiles(layout.rootPath, input.projectId, input.projectName)
 
     await updateProjectDatabaseMetadata(layout.databasePath, input.projectId, input.projectName)
     return layout
@@ -190,17 +224,7 @@ export class NodeProjectFileSystem implements ProjectFileSystemPort {
     await copyDirectory(input.sourceRootPath, targetRootPath)
     const layout = await ensureDirectoryStructure(targetRootPath)
 
-    await writeJson(layout.storyboardPath, {
-      projectId: input.projectId,
-      projectName: input.projectName,
-      scenes: [],
-    })
-
-    await writeJson(layout.settingsPath, {
-      projectId: input.projectId,
-      projectName: input.projectName,
-      version: 1,
-    })
+    await patchProjectManifestFiles(layout.rootPath, input.projectId, input.projectName)
 
     await initializeProjectDatabase(layout.databasePath, input.projectId, input.projectName)
     return layout
@@ -210,19 +234,11 @@ export class NodeProjectFileSystem implements ProjectFileSystemPort {
     await fs.rm(rootPath, { force: true, recursive: true })
   }
 
-  async writeSnapshot(layout: ProjectFolderLayout, snapshot: ProjectRecoverySnapshot): Promise<void> {
-    await writeJson(layout.storyboardPath, {
-      projectId: snapshot.projectId,
-      projectName: snapshot.projectName,
-      scenes: snapshot.storyboard,
-    })
+  async writeSnapshot(rootPath: string, snapshot: ProjectRecoverySnapshot): Promise<void> {
+    const layout = await ensureDirectoryStructure(rootPath)
 
-    await writeJson(layout.settingsPath, {
-      projectId: snapshot.projectId,
-      projectName: snapshot.projectName,
-      data: snapshot.settings,
-    })
-
+    await writeJson(layout.storyboardPath, snapshot.storyboard)
+    await writeJson(layout.settingsPath, snapshot.settings)
     await writeJson(layout.autosavePath, snapshot)
     await updateProjectDatabaseMetadata(layout.databasePath, snapshot.projectId, snapshot.projectName)
   }

@@ -64,40 +64,6 @@ export function createProjectManagerService(
     return project
   }
 
-  const writeSnapshot = async (
-    project: ManagedProject,
-    payload: ProjectSnapshotPayload,
-    savedAt: number,
-  ): Promise<void> => {
-    const snapshot: ProjectRecoverySnapshot = {
-      projectId: project.id,
-      projectName: project.name,
-      storyboard: payload.storyboard,
-      settings: payload.settings,
-      savedAt,
-    }
-
-    const currentProject = await dependencies.catalogRepository.getProjectById(project.id)
-    if (currentProject === null) {
-      throw new Error(`Project not found: ${project.id}`)
-    }
-
-    const layout = {
-      rootPath: currentProject.rootPath,
-      imagesPath: '',
-      downloadsPath: '',
-      tempPath: '',
-      cachePath: '',
-      storyboardPath: '',
-      settingsPath: '',
-      databasePath: '',
-      autosavePath: '',
-    }
-
-    await dependencies.fileSystem.writeSnapshot(layout, snapshot)
-    await dependencies.catalogRepository.saveSnapshot(project.id, snapshot)
-  }
-
   return {
     async createProject(name: string): Promise<ManagedProject> {
       const projectName = ensureProjectName(name)
@@ -247,20 +213,7 @@ export function createProjectManagerService(
         savedAt,
       }
 
-      await dependencies.fileSystem.writeSnapshot(
-        {
-          rootPath: project.rootPath,
-          imagesPath: '',
-          downloadsPath: '',
-          tempPath: '',
-          cachePath: '',
-          storyboardPath: '',
-          settingsPath: '',
-          databasePath: '',
-          autosavePath: '',
-        },
-        snapshot,
-      )
+      await dependencies.fileSystem.writeSnapshot(project.rootPath, snapshot)
 
       await dependencies.catalogRepository.saveSnapshot(project.id, snapshot)
 
